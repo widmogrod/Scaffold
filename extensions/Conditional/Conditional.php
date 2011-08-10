@@ -133,7 +133,8 @@ class Scaffold_Extension_Conditional extends Scaffold_Extension
 			'msie'	  => 'ie',
 			'netscape'=> 'n'
 		),
-		'commentNotMatched' => true
+		'commentNotMatched' => true,
+		'debugErrorInComments' => false,
 	);
 
 	/**
@@ -499,6 +500,11 @@ class Scaffold_Extension_Conditional extends Scaffold_Extension
 	
 	protected function _errorNear($errorMessage, $content)
 	{
-		return sprintf("\n\n".'/*!!!'."\n\t".'ERROR: %s '."\n".'*/'."\n".'%s', $errorMessage, $content);
+		if ($this->config['debugErrorInComments'])
+		{
+			return sprintf("\n\n".'/*!!!'."\n\t".'ERROR: %s '."\n".'*/'."\n".'%s', $errorMessage, $content);
+		}
+
+		return $content;
 	}
 }
