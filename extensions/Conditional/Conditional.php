@@ -63,7 +63,8 @@
  *				'msie'	  => 'ie',
  *				'netscape'=> 'n'
  *			),
- *			'commentNotMatched' => true
+ *			'commentNotMatched' => true,
+ *          'debugErrorInComments' => false
  *		)
  * </code>
  * 
