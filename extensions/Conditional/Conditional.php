@@ -426,11 +426,11 @@ class Scaffold_Extension_Conditional extends Scaffold_Extension
 		
 		if ($this->_commentNotMatched)
 		{
-			//return sprintf('/* %s */', $content);
+			return sprintf('/* %s */', $content);
 		}
 
-		/**/
-		return sprintf('/* operator:%s browser:%s  version:%s  content: %s */', $this->_currentOperator, 
+		/** /
+		return sprintf('/* operator:%s browser:%s  version:%s  content: %s * /', $this->_currentOperator, 
 											  strtoupper($this->_currentBrowserAbbrName), 
 											  $this->_currentVersion, 
 											  $content);
