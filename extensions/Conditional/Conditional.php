@@ -1,4 +1,6 @@
 <?php
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
 /**
  * Conditional
  *
@@ -112,6 +114,8 @@ class Scaffold_Extension_Conditional extends Scaffold_Extension
 	protected $_browserName;
 
 	protected $_browserVersion;
+	
+	protected $_browserAbbrName;
 	
 	protected $_browserNameAsAbbrName = array();
 	
