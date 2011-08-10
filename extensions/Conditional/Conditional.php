@@ -6,6 +6,7 @@
  *
  * Conditional statements:
  * <code>
+ *   [{!} browser]
  *   [if {!} browser]
  *   [if {!} browser version]
  *   [if {!} condition browser version]
@@ -19,6 +20,12 @@
  *   [if IE 5] - Used if browser is IE 5  
  *   [if lte IE 6] - Used if the browser is IE 6 or less (IE 5, IE 4 etc)  
  *   [if ! gt IE 6] - Same effect as the previous statement, if not greater than IE 6
+ *   
+ *   // Block comments
+ *   [IE]
+ *   	#IE {display:none}
+ *   [/IE]
+ *
  * </code>
  *
  *
@@ -40,6 +47,23 @@
  *   gte - Greater than or equal to (>=)
  *   gt - Greater then (>)
  *   ngt - Not geater then (!=, <>)
+ * </code>
+ * 
+ * Extension configuration:
+ * <code>
+ *		$config['Conditional'] = array(
+ *			'browserName' => 'Firefox',
+ *			'browserVersion' => '3.6',
+ *			'browserNameAsAbbrName' => array(
+ *				'firefox' => 'ff',
+ *				'chrome'  => 'ch',
+ *				'opera'   => 'o',
+ *				'safari'  => 's',
+ *				'msie'	  => 'ie',
+ *				'netscape'=> 'n'
+ *			),
+ *			'commentNotMatched' => true
+ *		)
  * </code>
  * 
  *
