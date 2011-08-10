@@ -56,6 +56,12 @@ class Scaffold_Extension_Conditional extends Scaffold_Extension
 
 	const DEFAULT_BROWSER_NAME = 'Firefox';
 	
+	const DEFAULT_BROWSER_ABBR_NAME = 'FF';
+	
+	const DEFAULT_BROWSER_VERSION = 3;
+	
+	protected $_commentNotMatched = true;
+	
 	protected $_isClosing;
 
 	protected $_isNegation;
@@ -70,7 +76,7 @@ class Scaffold_Extension_Conditional extends Scaffold_Extension
 	
 	protected $_currentOperator;
 	
-	protected $_currentBrowserAbbreviation;
+	protected $_currentBrowserAbbrName;
 	
 	protected $_availableOperators = array('<',  '>',  '<=',  '>=',  '==', '<>', '!=',
 										   'lt', 'gt', 'lte', 'gte', 'eq', 'neq');
@@ -79,33 +85,60 @@ class Scaffold_Extension_Conditional extends Scaffold_Extension
 	
 	protected $_browserData;
 	
-	protected $_browserNameAsAbbreviation = array(
-		'firefox' => 'ff',
-		'chrome'  => 'ch',
-		'opera'   => 'o',
-		'safari'  => 's',
-		'msie'	  => 'ie',
-		'netscape'=> 'n'
-	);
+	protected $_browserName;
+
+	protected $_browserVersion;
+	
+	protected $_browserNameAsAbbrName = array();
 	
 	/**
+	 * Default settings
+	 * @var array
+	 */
+	public $_defaults = array(
+		'browserName' => null,
+		'browserVersion' => null,
+		'browserNameAsAbbrName' => array(
+			'firefox' => 'ff',
+			'chrome'  => 'ch',
+			'opera'   => 'o',
+			'safari'  => 's',
+			'msie'	  => 'ie',
+			'netscape'=> 'n'
+		),
+		'commentNotMatched' => true
+	);
+
+	/**
 	 * Scaffold's process hook
+	 *
 	 * @access public
-	 * @param Scaffold
+	 * @param Scaffold_Source $source
+	 * @param Scaffold $scaffold
 	 * @return void
 	 */
-	public function process($source,$scaffold)
+	public function process(Scaffold_Source $source, Scaffold $scaffold)
 	{
-		$browserVersion = $this->getBrowserVersion();
-		$browserName = $this->getBrowserName();
+		// filter pair key => value
+		$browserNameAsAbbrName = $this->config['browserNameAsAbbrName'];
+		$browserNamesKeys = array_keys($browserNameAsAbbrName);
+		$browserNamesKeys = array_map('strtolower', $browserNamesKeys);
+		$browserNamesValues = array_values($browserNameAsAbbrName);
+		$browserNamesValues = array_map('strtolower', $browserNamesValues);
+		$this->_browserNameAsAbbrName = array_combine($browserNamesKeys, $browserNamesValues);
+		
+		$this->_commentNotMatched = (bool) $this->config['commentNotMatched'];
+
+		$this->setBrowserName($this->config['browserName']);
+		$this->setBrowserVersion($this->config['browserVersion']);
 
 		// matching inline conditions
-		$regexp = '/(\[([^\[\]]*)\]([^\n]+))/ie';
+		$regexp = '/(\[([^\[\]]+)\]([^\n]+))/ie';
 		$source->contents = preg_replace($regexp, "\$this->_parse('$2', '$0')", $source->contents);
 		
 		// matching block conditions
-		$regexp = '/\[([^\[\]]*)\]([^\[\]]+)\[\/([^\[\]]*)\]/ie';
-		$source->contents = preg_replace($regexp, "\$this->_parse('$1', '$2')", $source->contents);
+		$regexp = '/\[([^\[\]]+)\]([^\[\]]+)\[\/([^\[\]]+)\]/ie';
+		$source->contents = preg_replace($regexp, "\$this->_parse('$1', '$2', '$3')", $source->contents);
 	}
 	
 	public function getUserAgent()
@@ -210,33 +243,85 @@ class Scaffold_Extension_Conditional extends Scaffold_Extension
 				: $default);
 	}
 	
+	public function setBrowserVersion($version)
+	{
+		$this->_browserVersion = (is_numeric($version)) ? $version : null;
+	}
+	
 	public function getBrowserVersion()
 	{
-		$this->getBrowserData('majorver');
+		if (null === $this->_browserVersion)
+		{
+			$this->_browserVersion = $this->getBrowserData('majorver', self::DEFAULT_BROWSER_VERSION);
+		}
+
+		return $this->_browserVersion;
 	}
 	
-	public function getBrowserName($asAbbreviation = true)
+	public function setBrowserName($browser)
 	{
-		$browser = $this->getBrowserData('browser');
 		$browser = strtolower($browser);
+		$this->_browserName = array_key_exists($browser, $this->_browserNameAsAbbrName) ? $browser : null;
+	}
+	
+	public function getBrowserName()
+	{
+		if (null === $this->_browserName)
+		{
+			$this->_browserName = $this->getBrowserData('browser', self::DEFAULT_BROWSER_NAME);
+			$this->_browserName = strtolower($this->_browserName);
+		}
 
-		return array_key_exists($browser, $this->_browserNameAsAbbreviation)
-			? $this->_browserNameAsAbbreviation[$browser]
-			: self::DEFAULT_BROWSER_NAME;
+		return $this->_browserName;
+	}
+	
+	public function getBrowserAbbrName()
+	{
+		if (null === $this->_browserAbbrName)
+		{
+			$browserName = $this->getBrowserName();
+			$this->_browserAbbrName = array_key_exists($browserName, $this->_browserNameAsAbbrName)
+				? $this->_browserNameAsAbbrName[$browserName]
+				: self::DEFAULT_BROWSER_ABBR_NAME;
+		}
+		
+		return $this->_browserAbbrName;
 	}
 
 	
-	protected function _parse($condition, $content)
+	protected function _parse($condition, $content, $closingTag = null)
 	{
-		$isMached = false;
+		// parseCondition
+		$this->_parseCondition($condition);
 		
-		$this->_prepareCondition($condition);
+		if (!$this->_isBrowser)
+		{
+			$message = 'Undefined condition "%s". '."\n\t".'Available conditions: %s';
+			$message = sprintf($message, $condition, implode(', ', array_map('strtoupper', $this->_browserNameAsAbbrName)));
+			return $this->_errorNear($message, $content);
+		}
+		
+		if (null !==$closingTag)
+		{
+			$closingTag = strtolower($closingTag);
+			if (!in_array($closingTag, $this->_browserNameAsAbbrName) 
+				|| $this->_currentBrowserAbbrName != $closingTag)
+			{
+				$message = 'Invalid closing tag "%s".'."\n\t".'Expecting tag is "%s.';
+				$message = sprintf($message, strtoupper($closingTag), strtoupper($this->_currentBrowserAbbrName));
+				return $this->_errorNear($message, $content);
+			}
+		}
+		
+		$isMached = false;
 
 		$browserVersion = $this->getBrowserVersion();
-		$browserName = $this->getBrowserName();
+		$browserAbbrName = $this->getBrowserAbbrName();
+		
+		// var_dump($browserAbbrName);
 		
 		// browser type is mached
-		if ($this->_currentBrowserAbbreviation == $browserName)
+		if ($this->_currentBrowserAbbrName == $browserAbbrName)
 		{
 			$isMached = true;
 		}
@@ -310,14 +395,20 @@ class Scaffold_Extension_Conditional extends Scaffold_Extension
 			return $content;
 		}
 		
+		if ($this->_commentNotMatched)
+		{
+			//return sprintf('/* %s */', $content);
+		}
+
+		/**/
 		return sprintf('/* operator:%s browser:%s  version:%s  content: %s */', $this->_currentOperator, 
-											  strtoupper($this->_currentBrowserAbbreviation), 
+											  strtoupper($this->_currentBrowserAbbrName), 
 											  $this->_currentVersion, 
 											  $content);
-		
+		/**/
 	}
 
-	protected function _prepareCondition($condition)
+	protected function _parseCondition($condition)
 	{
 		$this->_isClosing  = false;
 		$this->_isNegation = false;
@@ -325,9 +416,9 @@ class Scaffold_Extension_Conditional extends Scaffold_Extension
 		$this->_isBrowser  = false;
 		$this->_isOperator = false;
 		
-		$this->_currentVersion  		    = null;
-		$this->_currentOperator			    = null;
-		$this->_currentBrowserAbbreviation  = null;
+		$this->_currentVersion  		= null;
+		$this->_currentOperator			= null;
+		$this->_currentBrowserAbbrName  = null;
 
 		// remove "empty" keywords
 		$condition = str_replace('if', '', $condition);
@@ -354,25 +445,33 @@ class Scaffold_Extension_Conditional extends Scaffold_Extension
 		$conditionParts = explode(' ', $condition);
 		$conditionParts = array_filter($conditionParts);
 
-		while(($part = array_shift($conditionParts)) && (!$this->_isVersion || !$this->_currentBrowserAbbreviation || !$this->_isOperator))
+		while (($part = array_shift($conditionParts)) && (!$this->_isVersion || !$this->_currentBrowserAbbrName || !$this->_isOperator))
 		{
 			if (!$this->_isOperator && in_array($part, $this->_availableOperators))
 			{
 				$this->_isOperator = true;
 				$this->_currentOperator = $part;
+				continue;
 			}
-			
-			if (!$this->_isBrowser && in_array($part, $this->_browserNameAsAbbreviation))
+
+			if (!$this->_isBrowser && in_array($part, $this->_browserNameAsAbbrName))
 			{
 				$this->_isBrowser = true;
-				$this->_currentBrowserAbbreviation = $part;
+				$this->_currentBrowserAbbrName = $part;
+				continue;
 			}
 			
 			if (!$this->_isVersion && is_numeric($part))
 			{
 				$this->_isVersion = true;
 				$this->_currentVersion = $part;
+				continue;
 			}
 		}
+	}
+	
+	protected function _errorNear($errorMessage, $content)
+	{
+		return sprintf("\n\n".'/*!!!'."\n\t".'ERROR: %s '."\n".'*/'."\n".'%s', $errorMessage, $content);
 	}
 }
