@@ -80,11 +80,11 @@ class Scaffold_Extension_Conditional extends Scaffold_Extension
      */
     const DEFAULT_HTTP_USER_AGENT = 'Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1)';
 
-	const DEFAULT_BROWSER_NAME = 'Firefox';
+	const DEFAULT_BROWSER_NAME = 'firefox';
 	
-	const DEFAULT_BROWSER_ABBR_NAME = 'FF';
+	const DEFAULT_BROWSER_ABBR_NAME = 'ff';
 	
-	const DEFAULT_BROWSER_VERSION = 3;
+	const DEFAULT_BROWSER_VERSION = 3.0;
 	
 	const PARSE_TYPE_INLINE = 'inline';
 
@@ -141,20 +141,21 @@ class Scaffold_Extension_Conditional extends Scaffold_Extension
 			'msie'	  => 'ie',
 			'netscape'=> 'n'
 		),
-		'commentNotMatched' => true,
+		'commentNotMatched' => false,
 		'debugErrorInComments' => false,
 	);
-
+	
+	
+	
 	/**
-	 * Scaffold's process hook
-	 *
+	 * @param $config array
 	 * @access public
-	 * @param Scaffold_Source $source
-	 * @param Scaffold $scaffold
 	 * @return void
 	 */
-	public function process(Scaffold_Source $source, Scaffold $scaffold)
+	public function __construct($config = array())
 	{
+		$this->config = array_merge($this->_defaults,$config);
+
 		// filter pair key => value
 		$browserNameAsAbbrName = $this->config['browserNameAsAbbrName'];
 		$browserNamesKeys = array_keys($browserNameAsAbbrName);
@@ -167,7 +168,18 @@ class Scaffold_Extension_Conditional extends Scaffold_Extension
 
 		$this->setBrowserName($this->config['browserName']);
 		$this->setBrowserVersion($this->config['browserVersion']);
+	}
 
+	/**
+	 * Scaffold's process hook
+	 *
+	 * @access public
+	 * @param Scaffold_Source $source
+	 * @param Scaffold $scaffold
+	 * @return void
+	 */
+	public function process(Scaffold_Source $source, Scaffold $scaffold)
+	{
 		// matching inline conditions
 		$this->_parseType = self::PARSE_TYPE_INLINE;
 		$regexp = '/(\[([^\[\]]+)\]([^\n]+))/ie';
@@ -273,7 +285,7 @@ class Scaffold_Extension_Conditional extends Scaffold_Extension
 			    $this->_browserData = array(
 			        'browser'   => $browserName,
 			        'version'   => $browserVersion,
-					'majorver'  => (($dotPosition = strpos($browserVersion, '.')) ? substr($browserVersion, 0, $dotPosition) : $browserVersion)
+					'majorver'  => (($dotPosition = strpos($browserVersion, '.')) ? (float) substr($browserVersion, 0, $dotPosition) : (int) $browserVersion)
 			    );
 			}
 		}
@@ -302,8 +314,17 @@ class Scaffold_Extension_Conditional extends Scaffold_Extension
 	
 	public function setBrowserName($browser)
 	{
-		$browser = strtolower($browser);
-		$this->_browserName = array_key_exists($browser, $this->_browserNameAsAbbrName) ? $browser : null;
+		if (null !== $browser)
+		{
+			$browser = strtolower($browser);
+			if (!array_key_exists($browser, $this->_browserNameAsAbbrName))
+			{
+				$this->_browserName = null;
+				return false;
+			}
+		}
+
+		$this->_browserName = $browser;
 	}
 	
 	public function getBrowserName()
@@ -335,9 +356,7 @@ class Scaffold_Extension_Conditional extends Scaffold_Extension
 	{
 		// parseCondition
 		$this->_parseCondition($condition);
-		
-		
-		
+				
 		if (!$this->_isBrowser)
 		{
 			$message = 'Undefined condition "%s". '."\n\t".'Available conditions: %s';
