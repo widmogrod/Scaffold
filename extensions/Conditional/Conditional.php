@@ -86,6 +86,13 @@ class Scaffold_Extension_Conditional extends Scaffold_Extension
 	
 	const DEFAULT_BROWSER_VERSION = 3;
 	
+	const PARSE_TYPE_INLINE = 'inline';
+
+	const PARSE_TYPE_BLOCK = 'block';
+	
+	
+	protected $_parseType;
+	
 	protected $_commentNotMatched = true;
 	
 	protected $_isClosing;
@@ -162,11 +169,17 @@ class Scaffold_Extension_Conditional extends Scaffold_Extension
 		$this->setBrowserVersion($this->config['browserVersion']);
 
 		// matching inline conditions
+		$this->_parseType = self::PARSE_TYPE_INLINE;
 		$regexp = '/(\[([^\[\]]+)\]([^\n]+))/ie';
-		$source->contents = preg_replace($regexp, "\$this->_parse('$2', '$0')", $source->contents);
+		$source->contents = preg_replace($regexp, "\$this->_parse('$2', '$3')", $source->contents);
 		
 		// matching block conditions
+		$this->_parseType = self::PARSE_TYPE_BLOCK;
 		$regexp = '/\[([^\[\]]+)\]([^\[\]]+)\[\/([^\[\]]+)\]/ie';
+		// preg_match_all($regexp, $source->contents, $mached);
+		// var_dump($mached);
+		// die;
+		
 		$source->contents = preg_replace($regexp, "\$this->_parse('$1', '$2', '$3')", $source->contents);
 	}
 	
@@ -323,10 +336,13 @@ class Scaffold_Extension_Conditional extends Scaffold_Extension
 		// parseCondition
 		$this->_parseCondition($condition);
 		
+		
+		
 		if (!$this->_isBrowser)
 		{
 			$message = 'Undefined condition "%s". '."\n\t".'Available conditions: %s';
 			$message = sprintf($message, $condition, implode(', ', array_map('strtoupper', $this->_browserNameAsAbbrName)));
+			$content = $this->_getContent($condition, $content, $closingTag);
 			return $this->_errorNear($message, $content);
 		}
 		
@@ -338,6 +354,7 @@ class Scaffold_Extension_Conditional extends Scaffold_Extension
 			{
 				$message = 'Invalid closing tag "%s".'."\n\t".'Expecting tag is "%s.';
 				$message = sprintf($message, strtoupper($closingTag), strtoupper($this->_currentBrowserAbbrName));
+				$content = $this->_getContent($condition, $content, $closingTag);
 				return $this->_errorNear($message, $content);
 			}
 		}
@@ -421,7 +438,9 @@ class Scaffold_Extension_Conditional extends Scaffold_Extension
 		// condition is mached - show CSS
 		if ($isMached)
 		{
-			return $content;
+			return ($this->_parseType == self::PARSE_TYPE_INLINE)
+				? ltrim($content)
+				: $content;
 		}
 		
 		if ($this->_commentNotMatched)
@@ -435,6 +454,22 @@ class Scaffold_Extension_Conditional extends Scaffold_Extension
 											  $this->_currentVersion, 
 											  $content);
 		/**/
+	}
+	
+	protected function _getContent($condition, $content, $closingTag = null)
+	{
+		switch($this->_parseType)
+		{
+			case self::PARSE_TYPE_INLINE:
+				return sprintf('[%s] %s', $condition, $content);
+				
+			case self::PARSE_TYPE_BLOCK:
+				return sprintf("\n[%s]\n%s\n[/%s]\n", $condition, $content, $closingTag);
+				
+			default:
+				$message = sprintf('Unknown parse type: "%s"', $this->_parseType);
+				throw new Exception($message);
+		}
 	}
 
 	protected function _parseCondition($condition)
