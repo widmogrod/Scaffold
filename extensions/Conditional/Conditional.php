@@ -259,8 +259,8 @@ class Scaffold_Extension_Conditional extends Scaffold_Extension
 
 			    $this->_browserData = array(
 			        'browser'   => $browserName,
-			        'version'   => $version,
-					'majorver'  => (($dotPosition = strpos($version, '.')) ? substr($version, 0, $dotPosition) : $version)
+			        'version'   => $browserVersion,
+					'majorver'  => (($dotPosition = strpos($browserVersion, '.')) ? substr($browserVersion, 0, $dotPosition) : $browserVersion)
 			    );
 			}
 		}
